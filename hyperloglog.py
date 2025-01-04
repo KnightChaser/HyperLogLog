@@ -14,9 +14,12 @@ class HyperLogLog:
         """
         assert number_of_buckets > 0, "Number of buckets should be greater than 0."
         assert number_of_buckets & (number_of_buckets - 1) == 0, "Number of buckets must be a power of 2."
-        self.number_of_buckets: int = number_of_buckets
-        self.buckets: List[int] = [0] * number_of_buckets  # Store the max run-of-zero count
-        self.alpha_m: float = self._compute_alpha_m(number_of_buckets)
+        self.number_of_buckets: int     = number_of_buckets
+        self.buckets: List[int]         = [0] * number_of_buckets  # Store the max run-of-zero count
+        self.alpha_m: float             = self._compute_alpha_m(number_of_buckets)
+
+        # Actual cardinality for error calculation (for testing purposes)
+        self.actual_cardinality:int     = 0
 
     @staticmethod
     def _compute_alpha_m(number_of_buckets: int) -> float:
@@ -84,11 +87,14 @@ class HyperLogLog:
         # Store the maximum run length seen for this bucket
         self.buckets[bucket_index] = max(self.buckets[bucket_index], leading_zeroes)
 
+        self.actual_cardinality += 1
+
     def estimate(self) -> float:
         """
         Estimates the cardinality of the set using the HyperLogLog algorithm.
         """
         # Compute the raw HyperLogLog estimate
+        # Used 2^(-R) form for harmonic mean since the probability of observing R leading zeros is 2^(-R).
         harmonic_mean = sum(2 ** -register for register in self.buckets)
         raw_estimate = self.alpha_m * (self.number_of_buckets ** 2) / harmonic_mean
 
@@ -98,7 +104,7 @@ class HyperLogLog:
             if zero_buckets > 0:
                 raw_estimate = self.number_of_buckets * math.log(self.number_of_buckets / zero_buckets)
 
-        # Large range correction
+        # Large range correction (for 32-bit registers)
         if raw_estimate > (1 << 32) / 30.0:
             raw_estimate = -(1 << 32) * math.log(1.0 - raw_estimate / (1 << 32))
 
@@ -122,12 +128,13 @@ class HyperLogLog:
         Returns the integer-rounded estimate of cardinality when len() is called.
         """
         return int(self.estimate())
-
-
-# Example usage
-if __name__ == "__main__":
-    hll = HyperLogLog(16)
-    hll.add("hello")
-    hll.add("world")
-    hll.add("hello")  # Adding "hello" again should not increase the count
-    print("Estimated Cardinality:", len(hll))
+    
+    def analyze(self) -> None:
+        """
+        Analyzes the HyperLogLog data structure.
+        """
+        print(f"Number of Buckets:      {self.number_of_buckets}")
+        print(f"Alpha_m Constant:       {self.alpha_m}")
+        print(f"Estimated Cardinality:  {len(self)}")
+        print(f"Actual Cardinality:     {self.actual_cardinality}")
+        print(f"Error (%):              {abs(self.actual_cardinality - len(self)) / self.actual_cardinality * 100}")
