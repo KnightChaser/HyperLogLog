@@ -13,18 +13,19 @@ Key properties of HyperLogLog:
 
 You can try the HyperLogLog at `example.py`. For example,
 ```py
-from hyperloglog import HyperLogLog
+# example.py
 import os
+from hyperloglog import HyperLogLog
+from tqdm import tqdm
 
-# Initialize HyperLogLog with 512 buckets
-hll = HyperLogLog(number_of_buckets=512)
+# Generate sample data for 1,000,000 times and add them to the HyperLogLog structure, then analyze it
 
-# Add 1,000,000 random elements
-for _ in range(1_000_000):
+hll = HyperLogLog(number_of_buckets = 512)
+number_of_data = 1_000_000
+for i in tqdm(range(number_of_data)):
     data = os.urandom(32).hex()
     hll.add(data)
 
-# Analyze the results
 hll.analyze()
 ```
 The result would be like
